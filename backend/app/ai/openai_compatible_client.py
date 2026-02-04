@@ -37,6 +37,10 @@ async def run_openai_compatible(
 
     url = base_url.rstrip("/") + "/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}"}
+    # OpenRouter recommends providing these headers; some deployments enforce them.
+    if "openrouter.ai" in base_url:
+        headers.setdefault("HTTP-Referer", "http://localhost")
+        headers.setdefault("X-Title", "doc_gen")
     payload = {
         "model": model,
         "messages": [
@@ -47,9 +51,24 @@ async def run_openai_compatible(
     }
 
     async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-        resp = await client.post(url, json=payload, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
+        try:
+            resp = await client.post(url, json=payload, headers=headers)
+        except httpx.RequestError as e:
+            raise RuntimeError(f"upstream request error: {e}") from e
+
+        if resp.status_code >= 400:
+            body = (resp.text or "").strip()
+            if len(body) > 1000:
+                body = body[:1000] + "…"
+            raise RuntimeError(f"upstream returned HTTP {resp.status_code}: {body}" if body else f"upstream returned HTTP {resp.status_code}")
+
+        try:
+            data = resp.json()
+        except Exception as e:
+            snippet = (resp.text or "").strip()
+            if len(snippet) > 300:
+                snippet = snippet[:300] + "…"
+            raise RuntimeError(f"upstream returned invalid JSON: {snippet}") from e
 
     choice = (data.get("choices") or [{}])[0]
     message = choice.get("message") or {}

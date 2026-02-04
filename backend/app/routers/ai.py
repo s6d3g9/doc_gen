@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+import httpx
 import json
 import re
 
@@ -21,6 +23,27 @@ from ..settings import settings
 from ..text import read_version_text
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+
+logger = logging.getLogger(__name__)
+
+
+def _truncate_for_http_detail(text: str, limit: int = 1000) -> str:
+    t = (text or "").strip()
+    if len(t) <= limit:
+        return t
+    return t[:limit] + "…"
+
+
+def _openrouter_exception_detail(exc: Exception) -> str:
+    # Keep details useful but safe: no headers, no tokens.
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        body = _truncate_for_http_detail(exc.response.text)
+        return f"HTTP {status}: {body}" if body else f"HTTP {status}"
+    if isinstance(exc, httpx.RequestError):
+        return f"Request error: {exc}"
+    msg = str(exc).strip()
+    return _truncate_for_http_detail(msg) if msg else exc.__class__.__name__
 
 
 class SummarizeRequest(BaseModel):
@@ -525,8 +548,12 @@ async def extract_entities(
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"OpenRouter config error: {e}") from e
-        except Exception:
-            raise HTTPException(status_code=502, detail="OpenRouter request failed")
+        except Exception as e:
+            logger.exception("OpenRouter request failed")
+            raise HTTPException(
+                status_code=502,
+                detail=f"OpenRouter request failed: {_openrouter_exception_detail(e)}",
+            ) from e
     else:
         if settings.model_provider == "none":
             raise HTTPException(
@@ -625,8 +652,12 @@ async def generate_template(
                 )
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=f"OpenRouter config error: {e}") from e
-            except Exception:
-                raise HTTPException(status_code=502, detail="OpenRouter request failed")
+            except Exception as e:
+                logger.exception("OpenRouter request failed")
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"OpenRouter request failed: {_openrouter_exception_detail(e)}",
+                ) from e
             return AIResult(text=resp.text)
 
     if settings.model_provider == "none":
@@ -692,8 +723,12 @@ async def chat(req: ChatRequest, current_user: User = Depends(get_current_user))
             return ChatResponse(text=resp.text)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"OpenRouter config error: {e}") from e
-        except Exception:
-            raise HTTPException(status_code=502, detail="OpenRouter request failed")
+        except Exception as e:
+            logger.exception("OpenRouter request failed")
+            raise HTTPException(
+                status_code=502,
+                detail=f"OpenRouter request failed: {_openrouter_exception_detail(e)}",
+            ) from e
 
     if settings.model_provider == "none":
         return ChatResponse(
@@ -767,8 +802,12 @@ async def compare(
             return AIResult(text=resp.text)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"OpenRouter config error: {e}") from e
-        except Exception:
-            raise HTTPException(status_code=502, detail="OpenRouter request failed")
+        except Exception as e:
+            logger.exception("OpenRouter request failed")
+            raise HTTPException(
+                status_code=502,
+                detail=f"OpenRouter request failed: {_openrouter_exception_detail(e)}",
+            ) from e
 
     if settings.model_provider == "none":
         raise HTTPException(
@@ -856,8 +895,12 @@ async def _run_ai_action(
             return AIResult(text=resp.text)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"OpenRouter config error: {e}") from e
-        except Exception:
-            raise HTTPException(status_code=502, detail="OpenRouter request failed")
+        except Exception as e:
+            logger.exception("OpenRouter request failed")
+            raise HTTPException(
+                status_code=502,
+                detail=f"OpenRouter request failed: {_openrouter_exception_detail(e)}",
+            ) from e
 
     if settings.model_provider == "none":
         raise HTTPException(
