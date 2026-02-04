@@ -240,6 +240,42 @@ function normalizeNumericString(value: string) {
   return cleaned
 }
 
+function parseNumber(value: string): number | null {
+  const cleaned = normalizeNumericString(value)
+  if (!cleaned) return null
+  const n = Number(cleaned)
+  return Number.isFinite(n) ? n : null
+}
+
+function formatRub(amount: number): string {
+  const rounded = Math.round(amount)
+  return `${new Intl.NumberFormat('ru-RU').format(rounded)} ₽`
+}
+
+function parsePricePerSqm(raw: string): number | null {
+  const s = normalizeSpaces(raw).toLowerCase()
+  if (!s) return null
+
+  // Heuristic: treat as "per m²" when the string clearly indicates that.
+  const perSqm = /(?:\/\s*м\s*(?:2|²)|за\s*м\s*(?:2|²)|на\s*м\s*(?:2|²))/i.test(s)
+  if (!perSqm) return null
+
+  // Extract the first number-like token as the rate.
+  const m = s.match(/[-+]?\d[\d\s.,]*/)
+  if (!m) return null
+  return parseNumber(m[0])
+}
+
+function computedProjectPrice(f: EntityFields): { rate: number; area: number; total: number } | null {
+  const rate = parsePricePerSqm(f.project_price)
+  if (rate == null) return null
+  const area = parseNumber(f.object_area_sqm)
+  if (area == null) return null
+  const total = rate * area
+  if (!Number.isFinite(total) || total <= 0) return null
+  return { rate, area, total }
+}
+
 function withUnit(value: string, unit: string) {
   const v = normalizeNumericString(value)
   return v ? `${v} ${unit}` : ''
@@ -309,8 +345,15 @@ function formatProjectBrief(f: EntityFields) {
   const budget = normalizeSpaces(f.project_budget)
   if (budget) lines.push(`Бюджет: ${budget}`)
 
-  const price = normalizeSpaces(f.project_price)
-  if (price) lines.push(`Стоимость работ: ${price}`)
+  const priceRaw = normalizeSpaces(f.project_price)
+  const computed = computedProjectPrice(f)
+  if (computed) {
+    const area = withUnit(String(computed.area), 'м²')
+    const rate = `${new Intl.NumberFormat('ru-RU').format(Math.round(computed.rate))} ₽/м²`
+    lines.push(`Стоимость работ: ${formatRub(computed.total)} (${rate} × ${area})`)
+  } else if (priceRaw) {
+    lines.push(`Стоимость работ: ${priceRaw}`)
+  }
 
   const payment = normalizeSpaces(f.project_payment_terms)
   if (payment) lines.push(`Порядок оплаты: ${payment}`)
@@ -669,7 +712,16 @@ function valueForPlaceholder(key: string, f: EntityFields) {
     case 'project.brief':
       return formatProjectBrief(f)
     case 'project.price':
-      return normalizeSpaces(f.project_price)
+      {
+        const computed = computedProjectPrice(f)
+        if (computed) return formatRub(computed.total)
+        return normalizeSpaces(f.project_price)
+      }
+    case 'project.price.per_sqm': {
+      const rate = parsePricePerSqm(f.project_price)
+      if (rate == null) return ''
+      return `${new Intl.NumberFormat('ru-RU').format(Math.round(rate))} ₽/м²`
+    }
     case 'project.payment.terms':
       return normalizeSpaces(f.project_payment_terms)
     case 'project.payment.methods':
