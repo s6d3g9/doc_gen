@@ -515,13 +515,18 @@ async def extract_entities(
 
     if rt:
         base_url, api_key, model = rt
-        resp = await run_openai_compatible(
-            base_url=base_url,
-            api_key=api_key,
-            model=model,
-            system=system,
-            user=user_prompt,
-        )
+        try:
+            resp = await run_openai_compatible(
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                system=system,
+                user=user_prompt,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"OpenRouter config error: {e}") from e
+        except Exception:
+            raise HTTPException(status_code=502, detail="OpenRouter request failed")
     else:
         if settings.model_provider == "none":
             raise HTTPException(
@@ -610,13 +615,18 @@ async def generate_template(
             rt = _get_openrouter_runtime(session, user)
         if rt:
             base_url, api_key, model = rt
-            resp = await run_openai_compatible(
-                base_url=base_url,
-                api_key=api_key,
-                model=model,
-                system=system,
-                user=user_prompt,
-            )
+            try:
+                resp = await run_openai_compatible(
+                    base_url=base_url,
+                    api_key=api_key,
+                    model=model,
+                    system=system,
+                    user=user_prompt,
+                )
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=f"OpenRouter config error: {e}") from e
+            except Exception:
+                raise HTTPException(status_code=502, detail="OpenRouter request failed")
             return AIResult(text=resp.text)
 
     if settings.model_provider == "none":
@@ -671,14 +681,19 @@ async def chat(req: ChatRequest, current_user: User = Depends(get_current_user))
 
     if rt:
         base_url, api_key, model = rt
-        resp = await run_openai_compatible(
-            base_url=base_url,
-            api_key=api_key,
-            model=model,
-            system=system,
-            user=user_prompt,
-        )
-        return ChatResponse(text=resp.text)
+        try:
+            resp = await run_openai_compatible(
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                system=system,
+                user=user_prompt,
+            )
+            return ChatResponse(text=resp.text)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"OpenRouter config error: {e}") from e
+        except Exception:
+            raise HTTPException(status_code=502, detail="OpenRouter request failed")
 
     if settings.model_provider == "none":
         return ChatResponse(
@@ -741,14 +756,19 @@ async def compare(
         rt = _get_openrouter_runtime(session, current_user)
     if rt:
         base_url, api_key, model = rt
-        resp = await run_openai_compatible(
-            base_url=base_url,
-            api_key=api_key,
-            model=model,
-            system=system,
-            user=user_prompt,
-        )
-        return AIResult(text=resp.text)
+        try:
+            resp = await run_openai_compatible(
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                system=system,
+                user=user_prompt,
+            )
+            return AIResult(text=resp.text)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"OpenRouter config error: {e}") from e
+        except Exception:
+            raise HTTPException(status_code=502, detail="OpenRouter request failed")
 
     if settings.model_provider == "none":
         raise HTTPException(
@@ -825,14 +845,19 @@ async def _run_ai_action(
         rt = _get_openrouter_runtime(session, current_user)
     if rt:
         base_url, api_key, model = rt
-        resp = await run_openai_compatible(
-            base_url=base_url,
-            api_key=api_key,
-            model=model,
-            system=system,
-            user=user_prompt,
-        )
-        return AIResult(text=resp.text)
+        try:
+            resp = await run_openai_compatible(
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                system=system,
+                user=user_prompt,
+            )
+            return AIResult(text=resp.text)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"OpenRouter config error: {e}") from e
+        except Exception:
+            raise HTTPException(status_code=502, detail="OpenRouter request failed")
 
     if settings.model_provider == "none":
         raise HTTPException(
