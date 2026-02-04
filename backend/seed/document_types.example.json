@@ -1,0 +1,6 @@
+[
+  {"key": "contract", "title": "Договор", "description": "Договоры и соглашения"},
+  {"key": "nda", "title": "NDA", "description": "Соглашение о неразглашении"},
+  {"key": "invoice", "title": "Счёт", "description": "Счета и оплаты"},
+  {"key": "act", "title": "Акт", "description": "Акты, закрывающие документы"}
+]

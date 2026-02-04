@@ -1,0 +1,30 @@
+{
+  "name": "doc_gen",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Document generator (contracts) with Google Docs and pluggable LLM providers",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js",
+    "dev": "node --enable-source-maps dist/cli.js",
+    "lint": "eslint .",
+    "format": "prettier -w ."
+  },
+  "dependencies": {
+    "@google-cloud/local-auth": "^3.0.1",
+    "dotenv": "^16.4.5",
+    "googleapis": "^140.0.1",
+    "node-fetch": "^3.3.2",
+    "yargs": "^17.7.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.10",
+    "@types/yargs": "^17.0.33",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3"
+  }
+}
