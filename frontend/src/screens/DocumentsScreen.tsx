@@ -1074,6 +1074,9 @@ export default function DocumentsScreen(props: DocumentsScreenProps) {
   async function onGenerateDocumentFromAI() {
     const base = previewText || ''
 
+    // Keep UI navigable: after generation we will switch filter to where the new doc will appear.
+    const createdTypeId = selected?.doc?.type_id || null
+
     // Minimal UX: allow without base version, but warn if nothing to guide the model.
     const hasBase = Boolean(base.trim())
     const rawInstruction = normalizeSpaces(chatText)
@@ -1132,9 +1135,15 @@ export default function DocumentsScreen(props: DocumentsScreenProps) {
 
       const finalText = templateText ? applyTemplate(templateText, entityFields) : ''
 
-      const created = await createDocumentFromText(title, finalText, selected?.doc?.type_id || null)
+      const created = await createDocumentFromText(title, finalText, createdTypeId)
       const items = await listDocumentsIndex()
       setDocs(items)
+
+      // If the current filter would hide the newly created document, switch to the matching bucket.
+      // This prevents the "не генерирует" UX when a doc is created but not visible due to filtering.
+      if (typeFilter.mode !== 'all') {
+        setTypeFilter(createdTypeId ? { mode: 'type', typeId: createdTypeId } : { mode: 'untyped' })
+      }
 
       const docItem: DocumentIndexItem =
         items.find((d) => d.id === created.document.id) ||
