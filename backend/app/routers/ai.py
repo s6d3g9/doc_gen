@@ -477,6 +477,8 @@ async def extract_entities(
         "project_deadline": "string",
         "project_notes": "string",
         "project_price": "string",
+        "project_price_per_sqm": "string",
+        "project_price_total": "string",
         "project_payment_terms": "string",
         "payment_method_cash": "boolean",
         "payment_method_bank_transfer": "boolean",
@@ -611,7 +613,7 @@ async def generate_template(
         "{{object.rooms.list}}, {{object.floor.fraction}}, {{object.bathrooms.count}}, {{object.balcony}}, "
         "{{object.residents.count}}, {{object.pets}}, {{object.pets.notes}}\n"
         "- Project: {{project.brief}}, {{project.scope}}, {{project.style}}, {{project.budget}}, {{project.deadline}}, "
-        "{{project.price}}, {{project.payment.terms}}, {{project.payment.methods}}, "
+        "{{project.price}}, {{project.price.per_sqm}}, {{project.payment.terms}}, {{project.payment.methods}}, "
         "{{project.revisions.included}}, {{project.revisions.extra}}, "
         "{{project.author.supervision}}, {{project.site.visits.count}}, {{project.site.visits.paid_by}}, {{project.site.visits.expenses}}, "
         "{{project.procurement.buys.paid_by}}, {{project.procurement.delivery.acceptance_by}}, "

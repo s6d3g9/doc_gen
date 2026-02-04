@@ -79,7 +79,12 @@ type EntityFields = {
   project_deadline: string
   project_notes: string
 
+  // Legacy free-form price field (kept for backwards compatibility with older AI outputs/templates).
   project_price: string
+
+  // Preferred structured pricing fields.
+  project_price_per_sqm: string
+  project_price_total: string
   project_payment_terms: string
   payment_method_cash: boolean
   payment_method_bank_transfer: boolean
@@ -266,8 +271,14 @@ function parsePricePerSqm(raw: string): number | null {
   return parseNumber(m[0])
 }
 
+function parseRatePerSqm(f: EntityFields): number | null {
+  const direct = parseNumber(f.project_price_per_sqm)
+  if (direct != null) return direct
+  return parsePricePerSqm(f.project_price)
+}
+
 function computedProjectPrice(f: EntityFields): { rate: number; area: number; total: number } | null {
-  const rate = parsePricePerSqm(f.project_price)
+  const rate = parseRatePerSqm(f)
   if (rate == null) return null
   const area = parseNumber(f.object_area_sqm)
   if (area == null) return null
@@ -345,14 +356,26 @@ function formatProjectBrief(f: EntityFields) {
   const budget = normalizeSpaces(f.project_budget)
   if (budget) lines.push(`Бюджет: ${budget}`)
 
-  const priceRaw = normalizeSpaces(f.project_price)
+  const totalRaw = normalizeSpaces(f.project_price_total)
   const computed = computedProjectPrice(f)
-  if (computed) {
+  const rate = parseRatePerSqm(f)
+
+  if (totalRaw) {
+    // If user provided total explicitly, prefer it.
+    if (rate != null && parseNumber(f.object_area_sqm) != null) {
+      const area = withUnit(f.object_area_sqm, 'м²')
+      const rateLabel = `${new Intl.NumberFormat('ru-RU').format(Math.round(rate))} ₽/м²`
+      lines.push(`Стоимость работ: ${totalRaw} (${rateLabel} × ${area})`)
+    } else {
+      lines.push(`Стоимость работ: ${totalRaw}`)
+    }
+  } else if (computed) {
     const area = withUnit(String(computed.area), 'м²')
-    const rate = `${new Intl.NumberFormat('ru-RU').format(Math.round(computed.rate))} ₽/м²`
-    lines.push(`Стоимость работ: ${formatRub(computed.total)} (${rate} × ${area})`)
-  } else if (priceRaw) {
-    lines.push(`Стоимость работ: ${priceRaw}`)
+    const rateLabel = `${new Intl.NumberFormat('ru-RU').format(Math.round(computed.rate))} ₽/м²`
+    lines.push(`Стоимость работ: ${formatRub(computed.total)} (${rateLabel} × ${area})`)
+  } else {
+    const legacy = normalizeSpaces(f.project_price)
+    if (legacy) lines.push(`Стоимость работ: ${legacy}`)
   }
 
   const payment = normalizeSpaces(f.project_payment_terms)
@@ -713,11 +736,19 @@ function valueForPlaceholder(key: string, f: EntityFields) {
       return formatProjectBrief(f)
     case 'project.price':
       {
+        const total = normalizeSpaces(f.project_price_total)
+        if (total) return total
         const computed = computedProjectPrice(f)
         if (computed) return formatRub(computed.total)
         return normalizeSpaces(f.project_price)
       }
     case 'project.price.per_sqm': {
+      const direct = normalizeSpaces(f.project_price_per_sqm)
+      if (direct) {
+        const n = parseNumber(direct)
+        if (n != null) return `${new Intl.NumberFormat('ru-RU').format(Math.round(n))} ₽/м²`
+        return direct
+      }
       const rate = parsePricePerSqm(f.project_price)
       if (rate == null) return ''
       return `${new Intl.NumberFormat('ru-RU').format(Math.round(rate))} ₽/м²`
@@ -869,6 +900,8 @@ export default function DocumentsScreen(props: DocumentsScreenProps) {
     project_deadline: '',
     project_notes: '',
     project_price: '',
+    project_price_per_sqm: '',
+    project_price_total: '',
     project_payment_terms: '',
     payment_method_cash: false,
     payment_method_bank_transfer: true,
@@ -913,6 +946,28 @@ export default function DocumentsScreen(props: DocumentsScreenProps) {
     deliverable_specification: true,
     deliverable_3d_visuals: true,
   })
+
+  // Auto-calc total price from rate×area, but don't overwrite a user-edited total.
+  const lastAutoTotalRef = React.useRef<string>('')
+  React.useEffect(() => {
+    const computed = computedProjectPrice(entityFields)
+    if (!computed) return
+    const nextAuto = formatRub(computed.total)
+
+    setEntityFields((prev) => {
+      // Only auto-fill when the field is empty or still equals the last auto value.
+      const current = normalizeSpaces(prev.project_price_total)
+      const lastAuto = lastAutoTotalRef.current
+      if (current && current !== lastAuto) return prev
+
+      if (current === nextAuto) {
+        lastAutoTotalRef.current = nextAuto
+        return prev
+      }
+      lastAutoTotalRef.current = nextAuto
+      return { ...prev, project_price_total: nextAuto }
+    })
+  }, [entityFields.object_area_sqm, entityFields.project_price_per_sqm, entityFields.project_price])
 
   const [createTitle, setCreateTitle] = React.useState('')
   const [createText, setCreateText] = React.useState('')
@@ -2400,11 +2455,25 @@ function EntitiesPanel(props: {
           </label>
 
           <label className="field">
-            <span className="field-label">Стоимость услуг дизайнера (текстом)</span>
+            <span className="field-label">Цена за м² (₽/м²)</span>
             <input
-              value={props.entityFields.project_price}
-              onChange={(e) => props.onChangeEntityFields((prev) => ({ ...prev, project_price: e.target.value }))}
-              placeholder="например: 150 000 ₽ или 3 500 ₽/м²"
+              value={props.entityFields.project_price_per_sqm}
+              onChange={(e) =>
+                props.onChangeEntityFields((prev) => ({
+                  ...prev,
+                  project_price_per_sqm: e.target.value,
+                }))
+              }
+              placeholder="например: 3500"
+            />
+          </label>
+
+          <label className="field">
+            <span className="field-label">Итоговая стоимость услуг (₽)</span>
+            <input
+              value={props.entityFields.project_price_total}
+              onChange={(e) => props.onChangeEntityFields((prev) => ({ ...prev, project_price_total: e.target.value }))}
+              placeholder="например: 175000"
             />
             {(() => {
               const computed = computedProjectPrice(props.entityFields)
