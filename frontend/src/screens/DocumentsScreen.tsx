@@ -2406,6 +2406,17 @@ function EntitiesPanel(props: {
               onChange={(e) => props.onChangeEntityFields((prev) => ({ ...prev, project_price: e.target.value }))}
               placeholder="например: 150 000 ₽ или 3 500 ₽/м²"
             />
+            {(() => {
+              const computed = computedProjectPrice(props.entityFields)
+              if (!computed) return null
+              const area = withUnit(String(computed.area), 'м²')
+              const rate = `${new Intl.NumberFormat('ru-RU').format(Math.round(computed.rate))} ₽/м²`
+              return (
+                <div className="muted" style={{ marginTop: 6 }}>
+                  Авто‑расчёт: {formatRub(computed.total)} ({rate} × {area})
+                </div>
+              )
+            })()}
           </label>
 
           <label className="field">
