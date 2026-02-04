@@ -947,24 +947,15 @@ export default function DocumentsScreen(props: DocumentsScreenProps) {
     deliverable_3d_visuals: true,
   })
 
-  // Auto-calc total price from rate×area, but don't overwrite a user-edited total.
-  const lastAutoTotalRef = React.useRef<string>('')
+  // Auto-calc total price from rate×area.
   React.useEffect(() => {
     const computed = computedProjectPrice(entityFields)
     if (!computed) return
     const nextAuto = formatRub(computed.total)
 
     setEntityFields((prev) => {
-      // Only auto-fill when the field is empty or still equals the last auto value.
       const current = normalizeSpaces(prev.project_price_total)
-      const lastAuto = normalizeSpaces(lastAutoTotalRef.current)
-      if (current && current !== lastAuto) return prev
-
-      if (current === nextAuto) {
-        lastAutoTotalRef.current = nextAuto
-        return prev
-      }
-      lastAutoTotalRef.current = nextAuto
+      if (current === nextAuto) return prev
       return { ...prev, project_price_total: nextAuto }
     })
   }, [entityFields.object_area_sqm, entityFields.project_price_per_sqm, entityFields.project_price])
@@ -2474,6 +2465,7 @@ function EntitiesPanel(props: {
               value={props.entityFields.project_price_total}
               onChange={(e) => props.onChangeEntityFields((prev) => ({ ...prev, project_price_total: e.target.value }))}
               placeholder="например: 175000"
+              readOnly={Boolean(computedProjectPrice(props.entityFields))}
             />
             {(() => {
               const computed = computedProjectPrice(props.entityFields)
