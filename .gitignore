@@ -2,7 +2,13 @@
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
+
+# VS Code (keep shareable workspace files)
+.vscode/*
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json
 
 ### Env files (keep examples)
 .env
