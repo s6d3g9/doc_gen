@@ -41,33 +41,75 @@ async def run_openai_compatible(
     if "openrouter.ai" in base_url:
         headers.setdefault("HTTP-Referer", "http://localhost")
         headers.setdefault("X-Title", "doc_gen")
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        "temperature": 0.2,
-    }
+    def build_payload(*, include_system: bool) -> dict:
+        if include_system:
+            messages = [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ]
+        else:
+            merged = (system or "").strip()
+            if merged:
+                merged = merged + "\n\n---\n\n" + (user or "")
+            else:
+                merged = user or ""
+            messages = [{"role": "user", "content": merged}]
+
+        return {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.2,
+        }
+
+    payload = build_payload(include_system=True)
 
     async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-        try:
-            resp = await client.post(url, json=payload, headers=headers)
-        except httpx.RequestError as e:
-            raise RuntimeError(f"upstream request error: {e}") from e
+        def truncate(text: str, limit: int) -> str:
+            t = (text or "").strip()
+            return t if len(t) <= limit else t[:limit] + "…"
+
+        def is_system_instruction_rejected(response: httpx.Response) -> bool:
+            # Some models/providers (e.g. Google AI Studio via OpenRouter) reject system/developer instructions.
+            # Detect and retry by folding system prompt into the user message.
+            try:
+                data = response.json() or {}
+            except Exception:
+                return False
+            err = data.get("error") if isinstance(data, dict) else None
+            if not isinstance(err, dict):
+                return False
+            msg = err.get("message")
+            if isinstance(msg, str) and "developer instruction" in msg.lower():
+                return True
+            meta = err.get("metadata")
+            if isinstance(meta, dict):
+                raw = meta.get("raw")
+                if isinstance(raw, str) and "developer instruction" in raw.lower():
+                    return True
+            return False
+
+        async def do_post(payload_to_send: dict) -> httpx.Response:
+            try:
+                return await client.post(url, json=payload_to_send, headers=headers)
+            except httpx.RequestError as e:
+                raise RuntimeError(f"upstream request error: {e}") from e
+
+        resp = await do_post(payload)
+
+        if resp.status_code >= 400 and resp.status_code == 400 and is_system_instruction_rejected(resp):
+            # One retry without system message.
+            resp = await do_post(build_payload(include_system=False))
 
         if resp.status_code >= 400:
-            body = (resp.text or "").strip()
-            if len(body) > 1000:
-                body = body[:1000] + "…"
-            raise RuntimeError(f"upstream returned HTTP {resp.status_code}: {body}" if body else f"upstream returned HTTP {resp.status_code}")
+            body = truncate(resp.text, 1000)
+            raise RuntimeError(
+                f"upstream returned HTTP {resp.status_code}: {body}" if body else f"upstream returned HTTP {resp.status_code}"
+            )
 
         try:
             data = resp.json()
         except Exception as e:
-            snippet = (resp.text or "").strip()
-            if len(snippet) > 300:
-                snippet = snippet[:300] + "…"
+            snippet = truncate(resp.text, 300)
             raise RuntimeError(f"upstream returned invalid JSON: {snippet}") from e
 
     choice = (data.get("choices") or [{}])[0]
