@@ -957,7 +957,7 @@ export default function DocumentsScreen(props: DocumentsScreenProps) {
     setEntityFields((prev) => {
       // Only auto-fill when the field is empty or still equals the last auto value.
       const current = normalizeSpaces(prev.project_price_total)
-      const lastAuto = lastAutoTotalRef.current
+      const lastAuto = normalizeSpaces(lastAutoTotalRef.current)
       if (current && current !== lastAuto) return prev
 
       if (current === nextAuto) {
