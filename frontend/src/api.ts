@@ -100,14 +100,30 @@ export type OpenRouterKey = {
   is_active: boolean
 }
 
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
 let _authToken: string | null = null
+
+function getAuthToken(): string | null {
+  if (_authToken) return _authToken
+  const saved = safeLocalStorageGet('auth_token')
+  if (saved) _authToken = saved
+  return _authToken
+}
 
 export function setAuthToken(token: string | null) {
   _authToken = token
 }
 
 function authHeader(): Record<string, string> {
-  return _authToken ? { Authorization: `Bearer ${_authToken}` } : {}
+  const t = getAuthToken()
+  return t ? { Authorization: `Bearer ${t}` } : {}
 }
 
 function baseUrl() {

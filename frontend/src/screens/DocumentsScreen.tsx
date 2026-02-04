@@ -37,6 +37,10 @@ type TypeFilter =
   | { mode: 'type'; typeId: string }
   | { mode: 'untyped' }
 
+type DocumentsScreenProps = {
+  isAuthed: boolean
+}
+
 type EntityFields = {
   customer_status: 'person' | 'ip' | 'self_employed' | 'company'
   customer_fio: string
@@ -755,7 +759,7 @@ function filterKey(f: TypeFilter) {
   return `type:${f.typeId}`
 }
 
-export default function DocumentsScreen() {
+export default function DocumentsScreen(props: DocumentsScreenProps) {
   const { setContent } = usePropertiesSlot()
   const [docs, setDocs] = React.useState<DocumentIndexItem[]>([])
   const [types, setTypes] = React.useState<DocumentType[]>([])
@@ -903,6 +907,14 @@ export default function DocumentsScreen() {
   const [orModelId, setOrModelId] = React.useState<string>('')
 
   const refreshOpenRouter = React.useCallback(async () => {
+    if (!props.isAuthed) {
+      setOrError(null)
+      setOrKeys([])
+      setOrModels([])
+      setOrActiveKeyId('')
+      setOrModelId('')
+      return
+    }
     setOrLoading(true)
     setOrError(null)
     try {
@@ -916,11 +928,16 @@ export default function DocumentsScreen() {
       setOrActiveKeyId(cfg.active_key_id || '')
       setOrModelId(cfg.model || '')
     } catch (e: any) {
-      setOrError(e?.message || 'Не удалось загрузить настройки OpenRouter')
+      const msg = String(e?.message || '')
+      if (msg.includes('401') || msg.toLowerCase().includes('missing bearer token')) {
+        setOrError('Нужна авторизация: войдите в аккаунт сверху.')
+      } else {
+        setOrError(e?.message || 'Не удалось загрузить настройки OpenRouter')
+      }
     } finally {
       setOrLoading(false)
     }
-  }, [])
+  }, [props.isAuthed])
 
   React.useEffect(() => {
     refreshOpenRouter().catch(() => {})
@@ -929,6 +946,11 @@ export default function DocumentsScreen() {
   async function sendChat() {
     const text = chatText.trim()
     if (!text || chatSending) return
+
+    if (!props.isAuthed) {
+      setError('Нужна авторизация: войдите в аккаунт сверху.')
+      return
+    }
 
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`
     setChatLog((prev) => [...prev, { id, role: 'user', text }])
@@ -1526,45 +1548,45 @@ export default function DocumentsScreen() {
 
       <section className="card">
         <h2 className="h2">Чат-бот</h2>
-        <div className="chat-grid">
-          <div>
-            <div className="chat-window" aria-label="Окно чата">
-              {chatLog.length === 0 ? (
-                <div className="muted">Пока нет сообщений.</div>
-              ) : (
-                <div className="stack-tight">
-                  {chatLog.map((m) => (
-                    <div key={m.id} className={`chat-msg ${m.role === 'bot' ? 'bot' : 'user'}`}>
-                      <div className="muted">{m.role === 'bot' ? 'Бот' : 'Вы'}</div>
-                      <div>{m.text}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+        <div className="chat-layout">
+          <div className="chat-window" aria-label="Окно чата">
+            {chatLog.length === 0 ? (
+              <div className="muted">Пока нет сообщений.</div>
+            ) : (
+              <div className="stack-tight">
+                {chatLog.map((m) => (
+                  <div key={m.id} className={`chat-msg ${m.role === 'bot' ? 'bot' : 'user'}`}>
+                    <div className="muted">{m.role === 'bot' ? 'Бот' : 'Вы'}</div>
+                    <div>{m.text}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-            <div className="chat-input-row">
-              <input
-                value={chatText}
-                disabled={chatSending}
-                onChange={(e) => setChatText(e.target.value)}
-                placeholder="Введите сообщение…"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    sendChat()
-                  }
-                }}
-              />
-              <button className="btn" type="button" onClick={sendChat} disabled={chatSending}>
-                {chatSending ? 'Отправляю…' : 'Отправить'}
-              </button>
-            </div>
+          <div className="chat-input-row">
+            <input
+              value={chatText}
+              disabled={chatSending}
+              onChange={(e) => setChatText(e.target.value)}
+              placeholder={props.isAuthed ? 'Введите сообщение…' : 'Войдите в аккаунт, чтобы пользоваться чатом'}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  sendChat()
+                }
+              }}
+            />
+            <button className="btn" type="button" onClick={sendChat} disabled={chatSending || !props.isAuthed}>
+              {chatSending ? 'Отправляю…' : 'Отправить'}
+            </button>
           </div>
 
           <div className="chat-menu" aria-label="Меню чат-бота">
             <div className="stack-tight">
               <div className="muted">Меню</div>
+
+              {!props.isAuthed ? <div className="alert">Войдите в аккаунт, чтобы настроить OpenRouter.</div> : null}
 
               {orError ? <div className="alert">{orError}</div> : null}
 
@@ -1579,7 +1601,7 @@ export default function DocumentsScreen() {
                 <button
                   className="btn"
                   type="button"
-                  disabled={orLoading || !orApiKeyInput.trim()}
+                  disabled={!props.isAuthed || orLoading || !orApiKeyInput.trim()}
                   onClick={async () => {
                     const key = orApiKeyInput.trim()
                     if (!key) return
@@ -1598,7 +1620,7 @@ export default function DocumentsScreen() {
                 >
                   {orLoading ? 'Добавляю…' : 'Добавить ключ'}
                 </button>
-                <button className="btn" type="button" disabled={orLoading} onClick={refreshOpenRouter}>
+                <button className="btn" type="button" disabled={!props.isAuthed || orLoading} onClick={refreshOpenRouter}>
                   Обновить модели
                 </button>
               </div>
@@ -1607,7 +1629,7 @@ export default function DocumentsScreen() {
                 <span className="field-label">Ключ</span>
                 <select
                   value={orActiveKeyId}
-                  disabled={orLoading || orKeys.length === 0}
+                  disabled={!props.isAuthed || orLoading || orKeys.length === 0}
                   onChange={async (e) => {
                     const id = e.target.value
                     setOrActiveKeyId(id)
@@ -1636,7 +1658,7 @@ export default function DocumentsScreen() {
                 <span className="field-label">Модель</span>
                 <select
                   value={orModelId}
-                  disabled={orLoading || !orActiveKeyId || orModels.length === 0}
+                  disabled={!props.isAuthed || orLoading || !orActiveKeyId || orModels.length === 0}
                   onChange={async (e) => {
                     const id = e.target.value
                     setOrModelId(id)
@@ -1668,7 +1690,7 @@ export default function DocumentsScreen() {
                 className="btn"
                 type="button"
                 onClick={onExtractEntitiesFromAI}
-                disabled={!selected || !selectedVersionId || extractingEntities}
+                disabled={!props.isAuthed || !selected || !selectedVersionId || extractingEntities}
                 title="ИИ извлекает сущности из выбранной версии и заполняет поля справа"
               >
                 {extractingEntities ? 'Извлекаю…' : 'Извлечь сущности'}
@@ -1677,7 +1699,7 @@ export default function DocumentsScreen() {
                 className="btn"
                 type="button"
                 onClick={onGenerateDocumentFromAI}
-                disabled={generatingFromAI}
+                disabled={!props.isAuthed || generatingFromAI}
                 title="ИИ генерирует шаблон с плейсхолдерами, затем создаёт новый документ"
               >
                 {generatingFromAI ? 'Генерирую…' : 'Сгенерировать документ'}

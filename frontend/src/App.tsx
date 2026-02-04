@@ -289,7 +289,7 @@ export default function App() {
 
       <div className="app-main">
         <main className="content" aria-label="Основной контент">
-          <DocumentsScreen />
+          <DocumentsScreen isAuthed={Boolean(me)} />
         </main>
 
         <aside id="properties" className="properties" aria-label="Редактор сущностей">

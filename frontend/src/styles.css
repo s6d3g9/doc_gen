@@ -375,18 +375,18 @@ input[type='radio'] {
   font-size: 13px;
 }
 
-.chat-grid {
+.chat-layout {
   display: grid;
-  grid-template-columns: 1fr 240px;
   gap: 12px;
-  align-items: start;
 }
 
 .chat-window {
   border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 10px 12px;
-  min-height: 140px;
+  min-height: 220px;
+  max-height: 48vh;
+  overflow: auto;
   background: var(--color-surface);
 }
 
@@ -396,10 +396,6 @@ input[type='radio'] {
   padding: 10px 12px;
   background: var(--color-surface);
   margin-top: 12px;
-}
-
-.chat-grid .chat-menu {
-  margin-top: 0;
 }
 
 .chat-msg {
@@ -417,8 +413,8 @@ input[type='radio'] {
 }
 
 @media (max-width: 900px) {
-  .chat-grid {
-    grid-template-columns: 1fr;
+  .chat-window {
+    max-height: 52vh;
   }
 }
 
