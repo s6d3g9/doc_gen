@@ -59,6 +59,11 @@ type EntityFields = {
   executor_telegram: string
 
   object_address: string
+  object_country: string
+  object_city: string
+  object_house: string
+  object_entrance: string
+  object_apartment: string
   object_type: 'apartment' | 'house' | 'commercial' | 'other'
   object_rooms_count: string
   object_area_sqm: string
@@ -308,11 +313,31 @@ function normalizeList(value: string) {
     .filter(Boolean)
 }
 
+function formatObjectAddress(f: EntityFields) {
+  const legacy = normalizeSpaces(f.object_address)
+  const country = normalizeSpaces(f.object_country)
+  const city = normalizeSpaces(f.object_city)
+  const house = normalizeSpaces(f.object_house)
+  const entrance = normalizeSpaces(f.object_entrance)
+  const apt = normalizeSpaces(f.object_apartment)
+  const floor = normalizeNumericString(f.object_floor)
+
+  const parts: string[] = []
+  if (country) parts.push(country)
+  if (city) parts.push(city)
+  if (legacy) parts.push(legacy)
+  if (house) parts.push(`дом ${house}`)
+  if (entrance) parts.push(`подъезд ${entrance}`)
+  if (apt) parts.push(`кв. ${apt}`)
+  if (floor) parts.push(`этаж ${floor}`)
+  return parts.join(', ')
+}
+
 function formatObjectSummary(f: EntityFields) {
   const lines: string[] = []
 
-  const addr = normalizeSpaces(f.object_address)
-  if (addr) lines.push(`Адрес: ${addr}`)
+  const fullAddress = formatObjectAddress(f)
+  if (fullAddress) lines.push(`Адрес: ${fullAddress}`)
 
   const typeLabel = formatObjectTypeLabel(f.object_type)
   if (typeLabel) lines.push(`Тип объекта: ${typeLabel}`)
@@ -606,7 +631,7 @@ function formatRequisitesExecutor(f: EntityFields) {
   return lines.join('\n')
 }
 
-function valueForPlaceholder(key: string, f: EntityFields) {
+function valueForPlaceholder(key: string, f: EntityFields): string {
   // Normalize key variants: customer_fio -> customer.fio
   const k = key.replace(/_/g, '.').toLowerCase()
 
@@ -670,11 +695,21 @@ function valueForPlaceholder(key: string, f: EntityFields) {
       return formatRequisitesExecutor(f)
 
     case 'object.address':
-      return normalizeSpaces(f.object_address)
+      return formatObjectAddress(f)
     case 'object.address.line': {
-      const addr = normalizeSpaces(f.object_address)
-      return addr ? `Адрес объекта: ${addr}` : ''
+      const full = formatObjectAddress(f)
+      return full ? `Адрес объекта: ${full}` : ''
     }
+    case 'object.country':
+      return normalizeSpaces(f.object_country)
+    case 'object.city':
+      return normalizeSpaces(f.object_city)
+    case 'object.house':
+      return normalizeSpaces(f.object_house)
+    case 'object.entrance':
+      return normalizeSpaces(f.object_entrance)
+    case 'object.apartment':
+      return normalizeSpaces(f.object_apartment)
     case 'object.type':
       return formatObjectTypeLabel(f.object_type)
     case 'object.rooms':
@@ -881,6 +916,11 @@ export default function DocumentsScreen(props: DocumentsScreenProps) {
     executor_email: '',
     executor_telegram: '',
     object_address: '',
+    object_country: '',
+    object_city: '',
+    object_house: '',
+    object_entrance: '',
+    object_apartment: '',
     object_type: 'apartment',
     object_rooms_count: '',
     object_area_sqm: '',
@@ -2238,6 +2278,49 @@ function EntitiesPanel(props: {
               }
             />
           </label>
+
+          <div className="form-grid">
+            <label className="field">
+              <span className="field-label">Страна</span>
+              <input
+                value={props.entityFields.object_country}
+                onChange={(e) => props.onChangeEntityFields((prev) => ({ ...prev, object_country: e.target.value }))}
+                placeholder="Россия"
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Город</span>
+              <input
+                value={props.entityFields.object_city}
+                onChange={(e) => props.onChangeEntityFields((prev) => ({ ...prev, object_city: e.target.value }))}
+                placeholder="Москва"
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Дом</span>
+              <input
+                value={props.entityFields.object_house}
+                onChange={(e) => props.onChangeEntityFields((prev) => ({ ...prev, object_house: e.target.value }))}
+                placeholder="10к2"
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Подъезд</span>
+              <input
+                value={props.entityFields.object_entrance}
+                onChange={(e) => props.onChangeEntityFields((prev) => ({ ...prev, object_entrance: e.target.value }))}
+                placeholder="3"
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Квартира</span>
+              <input
+                value={props.entityFields.object_apartment}
+                onChange={(e) => props.onChangeEntityFields((prev) => ({ ...prev, object_apartment: e.target.value }))}
+                placeholder="45"
+              />
+            </label>
+          </div>
 
           <label className="field">
             <span className="field-label">Тип объекта</span>

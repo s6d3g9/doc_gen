@@ -457,6 +457,11 @@ async def extract_entities(
         "executor_telegram": "string",
         # Object
         "object_address": "string",
+        "object_country": "string",
+        "object_city": "string",
+        "object_house": "string",
+        "object_entrance": "string",
+        "object_apartment": "string",
         "object_type": "apartment|house|commercial|other",
         "object_rooms_count": "string",
         "object_area_sqm": "string",
@@ -609,7 +614,7 @@ async def generate_template(
         "- Parties: {{customer.requisites}}, {{executor.requisites}}, {{customer.contacts}}, {{executor.contacts}}, "
         "{{customer.fio}}, {{customer.fio.short}}, {{customer.status}}, {{customer.phone}}, {{customer.email}}, "
         "{{executor.name}}, {{executor.phone}}, {{executor.email}}\n"
-        "- Object: {{object.summary}}, {{object.address}}, {{object.type}}, {{object.area.sqm}}, {{object.rooms.count}}, "
+        "- Object: {{object.summary}}, {{object.address}}, {{object.country}}, {{object.city}}, {{object.house}}, {{object.entrance}}, {{object.apartment}}, {{object.type}}, {{object.area.sqm}}, {{object.rooms.count}}, "
         "{{object.rooms.list}}, {{object.floor.fraction}}, {{object.bathrooms.count}}, {{object.balcony}}, "
         "{{object.residents.count}}, {{object.pets}}, {{object.pets.notes}}\n"
         "- Project: {{project.brief}}, {{project.scope}}, {{project.style}}, {{project.budget}}, {{project.deadline}}, "
