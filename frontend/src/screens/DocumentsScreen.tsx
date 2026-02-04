@@ -1493,7 +1493,7 @@ export default function DocumentsScreen(props: DocumentsScreenProps) {
 
       {error ? <div className="alert">{error}</div> : null}
 
-      <section className="card centered">
+      <section className="card">
         <h2 className="h2">Просмотр версии</h2>
         {selected && selectedVersionId ? (
           <div className="row row-wrap">
